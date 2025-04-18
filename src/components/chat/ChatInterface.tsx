@@ -1,20 +1,21 @@
-
 import { useState, useRef, useEffect } from "react";
-import { Send, Mic, Volume2, VolumeX, Loader2 } from "lucide-react";
+import { Send, Mic, Volume2, VolumeX, Loader2, Gamepad } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { sendMessageToAI, getApiKey, getStaticResponse } from "@/services/aiService";
 import { speakText, stopSpeaking, getVoiceApiKey } from "@/services/voiceService";
+import { getRandomQuestion, checkAnswer, getWordToGuess } from "@/services/gamesService";
 import { toast } from "sonner";
 
 interface Message {
   text: string;
   isUser: boolean;
+  role: "system" | "user" | "assistant";
 }
 
 export const ChatInterface = () => {
   const [messages, setMessages] = useState<Message[]>([
-    { text: "Hello! I'm Serenity, your AI wellness companion. How are you feeling today?", isUser: false }
+    { text: "Hello! I'm Serenity, your AI wellness companion. How are you feeling today?", isUser: false, role: "system" }
   ]);
   const [input, setInput] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
@@ -24,17 +25,19 @@ export const ChatInterface = () => {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
+  const [currentGame, setCurrentGame] = useState<{
+    type: "trivia" | "word-guess" | null;
+    question?: any;
+    word?: string;
+  }>({ type: null });
 
-  // Automatically scroll to bottom when new messages are added
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
   useEffect(() => {
-    // Check if voice API key is available
     setIsVoiceEnabled(!!getVoiceApiKey());
     
-    // If AI API key is not set, speak the initial greeting
     if (isVoiceEnabled) {
       handleSpeak(messages[0].text);
     }
@@ -44,30 +47,47 @@ export const ChatInterface = () => {
     if (!input.trim() || isProcessing) return;
     
     const userMessage = input;
-    setMessages(prev => [...prev, { text: userMessage, isUser: true }]);
+    setMessages(prev => [...prev, { text: userMessage, isUser: true, role: "user" }]);
     setInput("");
     setIsProcessing(true);
 
     try {
       let response: string;
 
-      if (getApiKey()) {
-        // Convert messages to format expected by API
-        const messageHistory = messages.map(msg => ({
-          role: msg.isUser ? 'user' : 'assistant',
-          content: msg.text
-        }));
-        
-        response = await sendMessageToAI(userMessage, messageHistory);
+      if (currentGame.type === "trivia" && currentGame.question) {
+        if (checkAnswer(currentGame.question, userMessage)) {
+          response = "🎉 Correct! Well done! Would you like another question? Just say 'play trivia'!";
+        } else {
+          response = `Sorry, that's not correct. The right answer was ${currentGame.question.correctAnswer}. Want to try another? Say 'play trivia'!`;
+        }
+        setCurrentGame({ type: null });
+      } else if (currentGame.type === "word-guess" && currentGame.word) {
+        if (userMessage.toLowerCase() === currentGame.word.toLowerCase()) {
+          response = "🎉 You got it! That's the correct word! Want to play again? Just say 'play word guess'!";
+          setCurrentGame({ type: null });
+        } else {
+          response = `Not quite! Here's another hint: ${currentGame.word.split('').map((letter, idx) => 
+            idx === 0 || currentGame.word[idx] === userMessage[idx] ? letter : '_').join('')}`;
+        }
       } else {
-        // Use static response if no API key
-        await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate delay
-        response = getStaticResponse();
+        const gameResponse = handleGameCommand(userMessage);
+        if (gameResponse) {
+          response = gameResponse;
+        } else if (getApiKey()) {
+          const messageHistory = messages.map(msg => ({
+            role: msg.role,
+            content: msg.text
+          }));
+          
+          response = await sendMessageToAI(userMessage, messageHistory);
+        } else {
+          await new Promise(resolve => setTimeout(resolve, 1000));
+          response = getStaticResponse();
+        }
       }
 
-      setMessages(prev => [...prev, { text: response, isUser: false }]);
+      setMessages(prev => [...prev, { text: response, isUser: false, role: "assistant" }]);
       
-      // Speak the response if voice is enabled
       if (isVoiceEnabled) {
         handleSpeak(response);
       }
@@ -96,7 +116,6 @@ export const ChatInterface = () => {
       stopSpeaking();
       setIsSpeaking(false);
     } else if (messages.length > 0) {
-      // Speak the last assistant message
       const lastAssistantMessage = [...messages].reverse().find(msg => !msg.isUser);
       if (lastAssistantMessage) {
         handleSpeak(lastAssistantMessage.text);
@@ -121,8 +140,6 @@ export const ChatInterface = () => {
       mediaRecorder.onstop = async () => {
         const audioBlob = new Blob(audioChunksRef.current, { type: "audio/wav" });
         
-        // TODO: Add proper speech-to-text conversion here
-        // For now, we'll just add a placeholder message
         setInput("I'm feeling a bit stressed today");
         setIsRecording(false);
       };
@@ -130,7 +147,6 @@ export const ChatInterface = () => {
       mediaRecorder.start();
       setIsRecording(true);
       
-      // Automatically stop recording after 5 seconds
       setTimeout(() => {
         if (mediaRecorderRef.current && mediaRecorderRef.current.state === "recording") {
           stopRecording();
@@ -148,7 +164,6 @@ export const ChatInterface = () => {
     if (mediaRecorderRef.current && mediaRecorderRef.current.state === "recording") {
       mediaRecorderRef.current.stop();
       
-      // Stop all tracks on the stream
       if (mediaRecorderRef.current.stream) {
         mediaRecorderRef.current.stream.getTracks().forEach(track => track.stop());
       }
@@ -161,6 +176,23 @@ export const ChatInterface = () => {
     } else {
       startRecording();
     }
+  };
+
+  const handleGameCommand = (message: string) => {
+    const lowerMessage = message.toLowerCase();
+    if (lowerMessage === "play trivia" || lowerMessage === "let's play trivia") {
+      const question = getRandomQuestion();
+      setCurrentGame({ type: "trivia", question });
+      return `Let's play trivia! 🎮\n\n${question.question}\n\nOptions:\n${question.options.map((opt, idx) => `${idx + 1}. ${opt}`).join('\n')}\n\nJust type your answer!`;
+    }
+    
+    if (lowerMessage === "play word guess" || lowerMessage === "let's play word guess") {
+      const word = getWordToGuess();
+      setCurrentGame({ type: "word-guess", word });
+      return `Let's play Word Guess! 🎯\nI'm thinking of a wellness-related word with ${word.length} letters.\nTry to guess it! Here's your hint: ${word.charAt(0)}${'_'.repeat(word.length - 1)}`;
+    }
+    
+    return null;
   };
 
   return (
@@ -197,7 +229,16 @@ export const ChatInterface = () => {
       <div className="flex gap-2">
         <Button 
           variant="outline" 
-          size="icon" 
+          size="icon"
+          onClick={() => setInput("play trivia")}
+          title="Play Trivia"
+        >
+          <Gamepad className="h-4 w-4" />
+        </Button>
+        
+        <Button 
+          variant="outline" 
+          size="icon"
           onClick={handleMicClick}
           className={isRecording ? "bg-red-500 text-white hover:bg-red-600" : ""}
         >
@@ -217,7 +258,7 @@ export const ChatInterface = () => {
         <Input
           value={input}
           onChange={(e) => setInput(e.target.value)}
-          placeholder="Type your message..."
+          placeholder="Type your message or try 'play trivia' / 'play word guess'..."
           onKeyDown={(e) => e.key === 'Enter' && handleSend()}
           disabled={isProcessing}
         />

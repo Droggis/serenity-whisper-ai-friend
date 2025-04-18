@@ -1,4 +1,3 @@
-
 // API Key handling - in a production app, this would be handled server-side
 let apiKey: string | null = localStorage.getItem('perplexity_api_key');
 
@@ -19,6 +18,18 @@ export const sendMessageToAI = async (message: string, conversationHistory: Mess
     throw new Error("API key not set");
   }
 
+  // Check for game commands
+  const lowerMessage = message.toLowerCase();
+  if (lowerMessage === "play trivia" || lowerMessage === "let's play trivia") {
+    const question = getRandomQuestion();
+    return `Let's play trivia! 🎮\n\n${question.question}\n\nOptions:\n${question.options.map((opt, idx) => `${idx + 1}. ${opt}`).join('\n')}\n\nJust type your answer!`;
+  }
+
+  if (lowerMessage === "play word guess" || lowerMessage === "let's play word guess") {
+    const word = getWordToGuess();
+    return `Let's play Word Guess! 🎯\nI'm thinking of a wellness-related word with ${word.length} letters.\nTry to guess it! Here's your hint: ${word.charAt(0)}${'_'.repeat(word.length - 1)}`;
+  }
+
   try {
     const response = await fetch('https://api.perplexity.ai/chat/completions', {
       method: 'POST',
@@ -35,9 +46,14 @@ export const sendMessageToAI = async (message: string, conversationHistory: Mess
                       Respond with empathy and compassion. 
                       Keep responses concise and helpful. 
                       Offer practical wellness advice when appropriate.
-                      If someone appears to be in crisis, encourage them to seek professional help.`
+                      You can also play games! Respond to "play trivia" or "play word guess" commands.
+                      If someone appears to be in crisis, encourage them to seek professional help.
+                      When users want to play games, remind them they can say "play trivia" or "play word guess".`
           },
-          ...conversationHistory,
+          ...conversationHistory.map(msg => ({
+            role: msg.role as "system" | "user" | "assistant",
+            content: msg.text
+          })),
           {
             role: 'user',
             content: message
@@ -74,3 +90,4 @@ const staticResponses = [
 export const getStaticResponse = () => {
   return staticResponses[Math.floor(Math.random() * staticResponses.length)];
 };
+import { getRandomQuestion, getWordToGuess } from './gamesService';
