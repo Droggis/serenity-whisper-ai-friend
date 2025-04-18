@@ -1,3 +1,4 @@
+
 // API Key handling - in a production app, this would be handled server-side
 let apiKey: string | null = localStorage.getItem('perplexity_api_key');
 
@@ -12,6 +13,15 @@ export const setApiKey = (key: string) => {
 };
 
 export const getApiKey = () => apiKey;
+
+import { 
+  getRandomQuestion, 
+  getWordToGuess, 
+  getRandomRiddle,
+  getRandomHealthTip,
+  triviaQuestions,
+  riddles
+} from './gamesService';
 
 export const sendMessageToAI = async (message: string, conversationHistory: Message[] = []): Promise<string> => {
   if (!apiKey) {
@@ -30,6 +40,26 @@ export const sendMessageToAI = async (message: string, conversationHistory: Mess
     return `Let's play Word Guess! 🎯\nI'm thinking of a wellness-related word with ${word.length} letters.\nTry to guess it! Here's your hint: ${word.charAt(0)}${'_'.repeat(word.length - 1)}`;
   }
 
+  if (lowerMessage === "play riddles" || lowerMessage === "let's play riddles") {
+    const riddle = getRandomRiddle();
+    return `Let's play Riddles! 🧩\n\n${riddle.question}\n\nType your answer or ask for a hint!`;
+  }
+
+  if (lowerMessage === "health tip" || lowerMessage === "give me a health tip") {
+    const tip = getRandomHealthTip();
+    return `💡 Health Tip: ${tip}`;
+  }
+
+  if (lowerMessage === "list games" || lowerMessage === "what games can we play") {
+    return `I can play these games with you:\n
+1. Trivia - test your knowledge with multiple choice questions! Say "play trivia"
+2. Word Guess - guess the wellness-related word! Say "play word guess" 
+3. Riddles - solve fun brain teasers! Say "play riddles"
+4. Memory Match - find matching pairs (available on the Games tab)
+
+You can also ask me for a "health tip" anytime!`;
+  }
+
   try {
     const response = await fetch('https://api.perplexity.ai/chat/completions', {
       method: 'POST',
@@ -46,13 +76,14 @@ export const sendMessageToAI = async (message: string, conversationHistory: Mess
                       Respond with empathy and compassion. 
                       Keep responses concise and helpful. 
                       Offer practical wellness advice when appropriate.
-                      You can also play games! Respond to "play trivia" or "play word guess" commands.
+                      You can also play games! Respond to "play trivia", "play word guess", or "play riddles" commands.
                       If someone appears to be in crisis, encourage them to seek professional help.
-                      When users want to play games, remind them they can say "play trivia" or "play word guess".`
+                      When users want to play games, remind them they can say "play trivia", "play word guess", or "play riddles".
+                      You can also provide a random health tip when asked.`
           },
           ...conversationHistory.map(msg => ({
-            role: msg.role as "system" | "user" | "assistant",
-            content: msg.text
+            role: msg.role,
+            content: msg.content
           })),
           {
             role: 'user',
@@ -90,4 +121,3 @@ const staticResponses = [
 export const getStaticResponse = () => {
   return staticResponses[Math.floor(Math.random() * staticResponses.length)];
 };
-import { getRandomQuestion, getWordToGuess } from './gamesService';

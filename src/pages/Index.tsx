@@ -1,12 +1,20 @@
 
+import { useState } from "react";
 import { Header } from "@/components/layout/Header";
 import { ChatInterface } from "@/components/chat/ChatInterface";
 import { WellnessTracker } from "@/components/wellness/WellnessTracker";
 import { AuthForms } from "@/components/auth/AuthForms";
 import { useAuth } from "@/contexts/AuthContext";
 import { AuthProvider } from "@/contexts/AuthContext";
+import { GamesInterface } from "@/components/games/GamesInterface";
+import { DiaryEntry } from "@/components/diary/DiaryEntry";
+import { HealthTips } from "@/components/wellness/HealthTips";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { MessageSquare, Activity, Gamepad2, Book, Heart } from "lucide-react";
 
 const AuthenticatedContent = () => {
+  const [activeTab, setActiveTab] = useState("chat");
+
   return (
     <div className="container mx-auto px-4 py-6">
       <div className="text-center mb-8">
@@ -17,16 +25,51 @@ const AuthenticatedContent = () => {
           Your AI companion for mental wellness and support
         </p>
       </div>
-      <div className="grid gap-8 md:grid-cols-2">
-        <section className="space-y-4">
-          <h2 className="text-2xl font-semibold mb-4">Chat with Serenity</h2>
+      
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
+        <TabsList className="grid grid-cols-5 w-full max-w-4xl mx-auto">
+          <TabsTrigger value="chat" className="flex items-center gap-2">
+            <MessageSquare className="h-4 w-4" />
+            <span className="hidden sm:inline">Chat</span>
+          </TabsTrigger>
+          <TabsTrigger value="wellness" className="flex items-center gap-2">
+            <Activity className="h-4 w-4" />
+            <span className="hidden sm:inline">Wellness</span>
+          </TabsTrigger>
+          <TabsTrigger value="games" className="flex items-center gap-2">
+            <Gamepad2 className="h-4 w-4" />
+            <span className="hidden sm:inline">Games</span>
+          </TabsTrigger>
+          <TabsTrigger value="diary" className="flex items-center gap-2">
+            <Book className="h-4 w-4" />
+            <span className="hidden sm:inline">Journal</span>
+          </TabsTrigger>
+          <TabsTrigger value="tips" className="flex items-center gap-2">
+            <Heart className="h-4 w-4" />
+            <span className="hidden sm:inline">Health Tips</span>
+          </TabsTrigger>
+        </TabsList>
+        
+        <TabsContent value="chat" className="mt-6">
           <ChatInterface />
-        </section>
-        <section className="space-y-4">
-          <h2 className="text-2xl font-semibold mb-4">Wellness Tracker</h2>
+        </TabsContent>
+        
+        <TabsContent value="wellness" className="mt-6">
           <WellnessTracker />
-        </section>
-      </div>
+        </TabsContent>
+        
+        <TabsContent value="games" className="mt-6">
+          <GamesInterface />
+        </TabsContent>
+        
+        <TabsContent value="diary" className="mt-6">
+          <DiaryEntry />
+        </TabsContent>
+        
+        <TabsContent value="tips" className="mt-6">
+          <HealthTips />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 };
@@ -62,6 +105,14 @@ const UnauthenticatedContent = () => {
             <li className="flex items-start">
               <span className="bg-primary text-primary-foreground w-6 h-6 rounded-full flex items-center justify-center mr-2">✓</span>
               <span>Practice daily gratitude and reflection</span>
+            </li>
+            <li className="flex items-start">
+              <span className="bg-primary text-primary-foreground w-6 h-6 rounded-full flex items-center justify-center mr-2">✓</span>
+              <span>Play fun brain games and wellness quizzes</span>
+            </li>
+            <li className="flex items-start">
+              <span className="bg-primary text-primary-foreground w-6 h-6 rounded-full flex items-center justify-center mr-2">✓</span>
+              <span>Keep a private wellness journal</span>
             </li>
           </ul>
         </div>

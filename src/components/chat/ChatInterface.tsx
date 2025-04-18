@@ -1,21 +1,28 @@
+
 import { useState, useRef, useEffect } from "react";
 import { Send, Mic, Volume2, VolumeX, Loader2, Gamepad } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { sendMessageToAI, getApiKey, getStaticResponse } from "@/services/aiService";
 import { speakText, stopSpeaking, getVoiceApiKey } from "@/services/voiceService";
-import { getRandomQuestion, checkAnswer, getWordToGuess } from "@/services/gamesService";
+import { getRandomQuestion, checkAnswer, getWordToGuess, getRandomRiddle } from "@/services/gamesService";
 import { toast } from "sonner";
 
 interface Message {
   text: string;
   isUser: boolean;
   role: "system" | "user" | "assistant";
+  content: string;
 }
 
 export const ChatInterface = () => {
   const [messages, setMessages] = useState<Message[]>([
-    { text: "Hello! I'm Serenity, your AI wellness companion. How are you feeling today?", isUser: false, role: "system" }
+    { 
+      text: "Hello! I'm Serenity, your AI wellness companion. How are you feeling today?", 
+      isUser: false, 
+      role: "system",
+      content: "Hello! I'm Serenity, your AI wellness companion. How are you feeling today?"
+    }
   ]);
   const [input, setInput] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
@@ -26,9 +33,10 @@ export const ChatInterface = () => {
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const [currentGame, setCurrentGame] = useState<{
-    type: "trivia" | "word-guess" | null;
+    type: "trivia" | "word-guess" | "riddles" | null;
     question?: any;
     word?: string;
+    riddle?: any;
   }>({ type: null });
 
   useEffect(() => {
@@ -39,7 +47,7 @@ export const ChatInterface = () => {
     setIsVoiceEnabled(!!getVoiceApiKey());
     
     if (isVoiceEnabled) {
-      handleSpeak(messages[0].text);
+      handleSpeak(messages[0].content);
     }
   }, []);
 
@@ -47,7 +55,12 @@ export const ChatInterface = () => {
     if (!input.trim() || isProcessing) return;
     
     const userMessage = input;
-    setMessages(prev => [...prev, { text: userMessage, isUser: true, role: "user" }]);
+    setMessages(prev => [...prev, { 
+      text: userMessage, 
+      isUser: true, 
+      role: "user",
+      content: userMessage 
+    }]);
     setInput("");
     setIsProcessing(true);
 
@@ -66,8 +79,17 @@ export const ChatInterface = () => {
           response = "🎉 You got it! That's the correct word! Want to play again? Just say 'play word guess'!";
           setCurrentGame({ type: null });
         } else {
-          response = `Not quite! Here's another hint: ${currentGame.word.split('').map((letter, idx) => 
+          response = `Not quite! Here's another hint: ${currentGame.word.split('').map((letter: string, idx: number) => 
             idx === 0 || currentGame.word[idx] === userMessage[idx] ? letter : '_').join('')}`;
+        }
+      } else if (currentGame.type === "riddles" && currentGame.riddle) {
+        if (userMessage.toLowerCase() === currentGame.riddle.answer.toLowerCase()) {
+          response = "🎉 That's correct! You solved the riddle! Want another one? Just say 'play riddles'!";
+          setCurrentGame({ type: null });
+        } else if (userMessage.toLowerCase().includes("hint")) {
+          response = `Here's a hint: ${currentGame.riddle.hint}`;
+        } else {
+          response = `That's not it. Would you like a hint? Just ask for one, or try another guess!`;
         }
       } else {
         const gameResponse = handleGameCommand(userMessage);
@@ -76,7 +98,7 @@ export const ChatInterface = () => {
         } else if (getApiKey()) {
           const messageHistory = messages.map(msg => ({
             role: msg.role,
-            content: msg.text
+            content: msg.content
           }));
           
           response = await sendMessageToAI(userMessage, messageHistory);
@@ -86,7 +108,12 @@ export const ChatInterface = () => {
         }
       }
 
-      setMessages(prev => [...prev, { text: response, isUser: false, role: "assistant" }]);
+      setMessages(prev => [...prev, { 
+        text: response, 
+        isUser: false, 
+        role: "assistant",
+        content: response 
+      }]);
       
       if (isVoiceEnabled) {
         handleSpeak(response);
@@ -118,7 +145,7 @@ export const ChatInterface = () => {
     } else if (messages.length > 0) {
       const lastAssistantMessage = [...messages].reverse().find(msg => !msg.isUser);
       if (lastAssistantMessage) {
-        handleSpeak(lastAssistantMessage.text);
+        handleSpeak(lastAssistantMessage.content);
       }
     }
   };
@@ -192,7 +219,25 @@ export const ChatInterface = () => {
       return `Let's play Word Guess! 🎯\nI'm thinking of a wellness-related word with ${word.length} letters.\nTry to guess it! Here's your hint: ${word.charAt(0)}${'_'.repeat(word.length - 1)}`;
     }
     
+    if (lowerMessage === "play riddles" || lowerMessage === "let's play riddles") {
+      const riddle = getRandomRiddle();
+      setCurrentGame({ type: "riddles", riddle });
+      return `Let's play Riddles! 🧩\n\n${riddle.question}\n\nType your answer or ask for a hint!`;
+    }
+    
+    if (lowerMessage === "list games" || lowerMessage === "what games can we play") {
+      return `I can play these games with you:\n
+1. Trivia - test your knowledge with multiple choice questions! Say "play trivia"
+2. Word Guess - guess the wellness-related word! Say "play word guess" 
+3. Riddles - solve fun brain teasers! Say "play riddles"
+4. Memory Match - find matching pairs (available in the Games tab)`;
+    }
+    
     return null;
+  };
+
+  const startGame = (gameType: string) => {
+    setInput(`play ${gameType}`);
   };
 
   return (
@@ -210,13 +255,13 @@ export const ChatInterface = () => {
                   : 'bg-muted'
               }`}
             >
-              {message.text}
+              {message.content}
               {!message.isUser && isVoiceEnabled && (
                 <Button 
                   variant="ghost" 
                   size="sm"
                   className="h-6 w-6 p-0 ml-2 opacity-50 hover:opacity-100"
-                  onClick={() => handleSpeak(message.text)}
+                  onClick={() => handleSpeak(message.content)}
                 >
                   <Volume2 className="h-3 w-3" />
                 </Button>
@@ -226,45 +271,77 @@ export const ChatInterface = () => {
         ))}
         <div ref={messagesEndRef} />
       </div>
-      <div className="flex gap-2">
-        <Button 
-          variant="outline" 
-          size="icon"
-          onClick={() => setInput("play trivia")}
-          title="Play Trivia"
-        >
-          <Gamepad className="h-4 w-4" />
-        </Button>
-        
-        <Button 
-          variant="outline" 
-          size="icon"
-          onClick={handleMicClick}
-          className={isRecording ? "bg-red-500 text-white hover:bg-red-600" : ""}
-        >
-          <Mic className="h-4 w-4" />
-        </Button>
-        
-        {isVoiceEnabled && (
+      <div className="flex-none">
+        <div className="flex gap-1 mb-2 overflow-x-auto pb-1">
+          <Button 
+            variant="outline" 
+            size="sm"
+            onClick={() => startGame("trivia")}
+          >
+            Play Trivia
+          </Button>
+          <Button 
+            variant="outline" 
+            size="sm"
+            onClick={() => startGame("word guess")}
+          >
+            Word Guess
+          </Button>
+          <Button 
+            variant="outline" 
+            size="sm"
+            onClick={() => startGame("riddles")}
+          >
+            Riddles
+          </Button>
+          <Button 
+            variant="outline" 
+            size="sm"
+            onClick={() => setInput("Tell me a health tip")}
+          >
+            Health Tip
+          </Button>
+        </div>
+        <div className="flex gap-2">
           <Button 
             variant="outline" 
             size="icon"
-            onClick={toggleSpeaking}
+            onClick={() => setInput("list games")}
+            title="Games"
           >
-            {isSpeaking ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
+            <Gamepad className="h-4 w-4" />
           </Button>
-        )}
-        
-        <Input
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          placeholder="Type your message or try 'play trivia' / 'play word guess'..."
-          onKeyDown={(e) => e.key === 'Enter' && handleSend()}
-          disabled={isProcessing}
-        />
-        <Button onClick={handleSend} disabled={isProcessing}>
-          {isProcessing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-        </Button>
+          
+          <Button 
+            variant="outline" 
+            size="icon"
+            onClick={handleMicClick}
+            className={isRecording ? "bg-red-500 text-white hover:bg-red-600" : ""}
+          >
+            <Mic className="h-4 w-4" />
+          </Button>
+          
+          {isVoiceEnabled && (
+            <Button 
+              variant="outline" 
+              size="icon"
+              onClick={toggleSpeaking}
+            >
+              {isSpeaking ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
+            </Button>
+          )}
+          
+          <Input
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            placeholder="Type your message..."
+            onKeyDown={(e) => e.key === 'Enter' && handleSend()}
+            disabled={isProcessing}
+          />
+          <Button onClick={handleSend} disabled={isProcessing}>
+            {isProcessing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+          </Button>
+        </div>
       </div>
     </div>
   );
