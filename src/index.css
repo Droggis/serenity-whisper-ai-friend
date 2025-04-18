@@ -49,6 +49,7 @@
     --sidebar-border: 220 13% 91%;
 
     --sidebar-ring: 217.2 91.2% 59.8%;
+    --background-pattern: linear-gradient(135deg, #F7F3FF 0%, #FFFFFF 100%);
   }
 
   .dark {
@@ -88,6 +89,12 @@
     --sidebar-border: 240 3.7% 15.9%;
     --sidebar-ring: 217.2 91.2% 59.8%;
   }
+
+  body {
+    @apply bg-serenity-background text-serenity-text antialiased;
+    background-image: var(--background-pattern);
+    background-attachment: fixed;
+  }
 }
 
 @layer base {
@@ -97,5 +104,19 @@
 
   body {
     @apply bg-background text-foreground;
+  }
+}
+
+@layer utilities {
+  .glass-card {
+    @apply backdrop-blur-lg bg-white/60 border border-white/20 rounded-2xl shadow-soft;
+  }
+
+  .gradient-text {
+    @apply bg-gradient-to-r from-serenity-primary to-serenity-secondary text-transparent bg-clip-text;
+  }
+
+  .hover-lift {
+    @apply transition-all duration-300 hover:-translate-y-2 hover:shadow-elegant;
   }
 }
