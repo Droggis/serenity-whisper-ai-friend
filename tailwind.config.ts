@@ -1,3 +1,4 @@
+
 import type { Config } from "tailwindcss";
 
 export default {
@@ -69,30 +70,14 @@ export default {
           'background': '#F7F3FF',
           'text': '#2D3748'
         },
-        backgroundImage: {
-          'gradient-primary': 'linear-gradient(135deg, #8B5CF6 0%, #4FD1C5 100%)',
-          'gradient-secondary': 'linear-gradient(to right, #FEB043, #FF6B6B)',
-        },
-        boxShadow: {
-          'soft': '0 10px 25px rgba(139, 92, 246, 0.2)',
-          'elegant': '0 15px 35px rgba(79, 209, 197, 0.15)',
-        },
-        animation: {
-          'subtle-bounce': 'bounce 1s ease-in-out infinite',
-          'fade-in-up': 'fadeInUp 0.5s ease-out',
-        },
-        keyframes: {
-          'fadeInUp': {
-            '0%': { 
-              opacity: '0', 
-              transform: 'translateY(20px)' 
-            },
-            '100%': { 
-              opacity: '1', 
-              transform: 'translateY(0)' 
-            }
-          }
-        }
+      },
+      backgroundImage: {
+        'gradient-primary': 'linear-gradient(135deg, #8B5CF6 0%, #4FD1C5 100%)',
+        'gradient-secondary': 'linear-gradient(to right, #FEB043, #FF6B6B)',
+      },
+      boxShadow: {
+        'soft': '0 10px 25px rgba(139, 92, 246, 0.2)',
+        'elegant': '0 15px 35px rgba(79, 209, 197, 0.15)',
       },
       borderRadius: {
         lg: 'var(--radius)',
@@ -115,11 +100,23 @@ export default {
           to: {
             height: '0'
           }
+        },
+        'fadeInUp': {
+          '0%': { 
+            opacity: '0', 
+            transform: 'translateY(20px)' 
+          },
+          '100%': { 
+            opacity: '1', 
+            transform: 'translateY(0)' 
+          }
         }
       },
       animation: {
         'accordion-down': 'accordion-down 0.2s ease-out',
-        'accordion-up': 'accordion-up 0.2s ease-out'
+        'accordion-up': 'accordion-up 0.2s ease-out',
+        'subtle-bounce': 'bounce 1s ease-in-out infinite',
+        'fade-in-up': 'fadeInUp 0.5s ease-out',
       }
     }
   },
